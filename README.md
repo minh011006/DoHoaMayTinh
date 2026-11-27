@@ -29,3 +29,39 @@ $ctest = Join-Path (Split-Path $cmake) 'ctest.exe'
 .\build\Release\vase_mesh_check.exe
 & $ctest --test-dir build -C Release --output-on-failure
 ```
+
+## Khung chỉnh Bézier (feature/bezier-editor)
+
+Ứng dụng `bezier_editor` dùng C++17, OpenGL và **FreeGLUT**. Khung trái gồm trục quay Y (`r=0`), bốn điểm P0–P3, đa giác điều khiển và đường Bézier bậc ba. Kéo điểm bằng chuột trái; đường cong và 101 mẫu cập nhật trong lúc kéo. P0 là đáy, P3 là miệng. Khung phải hiển thị tọa độ điều khiển và bản xem trước mỗi mẫu thứ năm.
+
+Giới hạn tọa độ mô hình: bán kính 0.05–2.5, chiều cao 0–4; chiều cao điểm điều khiển không giảm, đáy và miệng cách nhau ít nhất 0.05. Giới hạn bán kính dương giúp phần chỉnh đường biên giữ miệng và đáy mở; nhóm có thể thêm điểm trên trục khi cần đóng đáy trong module dựng lưới. Không sắp xếp lại mẫu sau khi lấy mẫu, vì việc đó có thể thay đổi đường biên.
+
+- `R`: khôi phục bốn điểm ban đầu.
+- `S`: lưu lại CSV; `Esc`: thoát.
+- CSV được ghi khi khởi động, kéo điểm và reset. Mặc định là `profile.csv` trong thư mục làm việc; có thể chọn `bezier_editor --output D:/path/profile.csv`. Lỗi ghi được hiển thị trên giao diện.
+- Thay đổi kích thước cửa sổ vẫn giữ phép đổi tọa độ chuột đúng với bản vẽ.
+
+Tích hợp phần dựng 3D:
+
+```cpp
+#include "bezier_profile.hpp"
+vase::BezierProfile editor;
+editor.moveControl(1, 1.4, 0.9);
+auto profile = editor.sample(101); // thứ tự đáy -> miệng, đơn vị mô hình
+const auto mesh = vase::generateVaseMesh(profile, 48);
+```
+
+Liên kết cả hai target `bezier_profile` và `vase_mesh` khi dùng ví dụ trên. `BezierProfile::controls` dùng để đọc vị trí; dùng `moveControl()` khi cập nhật để áp dụng ràng buộc. `sample()` trả danh sách `std::vector<ProfilePoint>` với các trường `r`, `y`. CSV có dòng tiêu đề `r,y` và 101 dòng dữ liệu, ghi đủ độ chính xác `double`.
+
+### Build ứng dụng
+
+Cài FreeGLUT phù hợp kiến trúc trình biên dịch, rồi dùng CMake:
+
+```powershell
+cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_PREFIX_PATH="C:/path/to/freeglut"
+cmake --build build
+ctest --test-dir build --output-on-failure
+.\build\bezier_editor.exe
+```
+
+Nếu FreeGLUT dùng DLL, đặt DLL cạnh `bezier_editor.exe` hoặc thêm thư mục DLL vào PATH. Để chỉ build thư viện và kiểm tra mà không cần OpenGL/FreeGLUT: thêm `-DBUILD_BEZIER_EDITOR=OFF` khi cấu hình. Bộ kiểm tra mới đối chiếu công thức Bézier, đầu mút, 200 thao tác kéo có ràng buộc, tích hợp lưới và số dòng CSV.
